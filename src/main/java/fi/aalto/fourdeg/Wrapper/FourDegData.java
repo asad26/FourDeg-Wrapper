@@ -7,30 +7,34 @@
 
 package fi.aalto.fourdeg.Wrapper;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Iterator;
+
 import java.util.Properties;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+
 public class FourDegData {
 
 	private static ApiForOmi omiObject;
 	private static String omiURL;
 	public int count;
+	private static OkHttpClient client;
 
 	/* Constructor for this class */
 	public FourDegData(Properties prop) {
 		omiObject = new ApiForOmi();
 		omiURL = prop.getProperty("omi_node");
 		count = 0;
+		client = new OkHttpClient();
 	}
 
 	/* Get JSON array index one at a time and send for parsing to create ODF */
@@ -47,100 +51,59 @@ public class FourDegData {
 	/* Get items from fourdeg JSON array, create ODF object, and send to the sand box one at a time */
 	private static void createCompleteOdf(JSONObject jObject) {
 		String infoItems = "";
-		String objectId = null;
-		String pubDate = null;
-		String MAC = null;
+		String newKey = null;
 
 		try {
-			pubDate = jObject.getString("last_communication");
-			Iterator<?> iterator = jObject.keys();
-			while (iterator.hasNext()) {
-				String key = (String) iterator.next();
+			String pubDate = jObject.getString("last_communication");
+			String objectId = jObject.getString("name").replace(" ", "");
 
-				if (key.equals("name")) {
-					objectId = jObject.getString(key).replace(" ", "");
-					objectId.replace(" ", "");
-				}
-				else if (key.equals("mac")){
-					String newKey="MAC";
-					infoItems = infoItems + omiObject.createInfoItem(newKey, jObject.getString(key), pubDate);
-					MAC = jObject.getString(key);
-				}
-				else if (key.equals("current_set_point")){
-					String newKey="Set-Point";
-					infoItems = infoItems + omiObject.createInfoItem(newKey, jObject.getString(key), pubDate);
-				}
-				else if (key.equals("current_temperature")){
-					String newKey="Temperature";
-					infoItems = infoItems + omiObject.createInfoItem(newKey, jObject.getString(key), pubDate);
-				}
-				else if (key.equals("current_valve_position")){
-					String newKey="Valve-Position";
-					infoItems = infoItems + omiObject.createInfoItem(newKey, jObject.getString(key), pubDate);
-				}
-				else if (key.equals("current_battery_remaining")){
-					String newKey="Battery-Remaining";
-					infoItems = infoItems + omiObject.createInfoItem(newKey, jObject.getString(key), pubDate);
-				}
-				else {}
+			String URL = "http://localhost:8080/Objects/Otakaari-3/Thermostats/" + objectId + "/MAC/value";
+			String macValue = getMacValue(URL);
+			String MAC = jObject.getString("mac");
 
+			if (!macValue.equals(MAC)) {
+				newKey = "MAC";
+				infoItems = infoItems + omiObject.createInfoItem(newKey, jObject.getString("mac"), pubDate);
 			}
+
+			newKey = "Set-Point";
+			infoItems = infoItems + omiObject.createInfoItem(newKey, jObject.getString("current_set_point"), pubDate);
+
+			newKey = "Temperature";
+			infoItems = infoItems + omiObject.createInfoItem(newKey, jObject.getString("current_temperature"), pubDate);
+
+			newKey = "Valve-Position";
+			infoItems = infoItems + omiObject.createInfoItem(newKey, jObject.getString("current_valve_position"), pubDate);
+
+			newKey = "Battery-Remaining";
+			infoItems = infoItems + omiObject.createInfoItem(newKey, jObject.getString("current_battery_remaining"), pubDate);
+			
+			String roomObject = omiObject.createOdfObject(objectId, infoItems);
+			String thermoObject = omiObject.createOdfObject("Thermostats", roomObject);
+			String topObject = omiObject.createOdfObject("Otakaari-3", thermoObject);
+			String finalMessage = omiObject.createWriteMessage(omiObject.createOdfObjects(topObject));
+			sendData(omiURL, finalMessage);
+			
 		} catch (JSONException e) {
 			System.out.println(e.getMessage());
 			System.exit(1);
 		}
-
-		String URL = "http://localhost:8080/Objects/Otakaari-3/Thermostats/" + objectId + "/MAC/value";
-		String macValue = getMacValue(URL);
-		System.out.println(macValue);
-
-//		if (!macValue.equals(MAC)) {	// Checks if MAC is different and then send the data
-//			String roomObject = omiObject.createOdfObject(objectId, infoItems);
-//			String thermoObject = omiObject.createOdfObject("Thermostats", roomObject);
-//			String topObject = omiObject.createOdfObject("Otakaari-3", thermoObject);
-//			String finalMessage = omiObject.createWriteMessage(omiObject.createOdfObjects(topObject));
-//			sendData(omiURL, finalMessage);
-//		}
 	}
 
 	/* Method call to get data in JSON string format */
 	public String getJsonData(String url, String token) {
-
-		HttpURLConnection httpcon = null;
-		BufferedReader br = null;
-		StringBuffer response = null;
+		
+		Response response = null;
 		try {
-			httpcon = (HttpURLConnection) ((new URL(url).openConnection()));
-			httpcon.setDoOutput(false);
-			String authorization="Token " + token;
-			httpcon.setRequestProperty("Authorization", authorization);
-			httpcon.setRequestProperty("Accept", "application/json");
-			httpcon.setRequestMethod("GET");
-			//System.out.println(httpcon.getResponseMessage());
-			br = new BufferedReader(new InputStreamReader(httpcon.getInputStream(), "UTF-8"));
-			response = new StringBuffer();
-
-			String inputLine;
-			while ((inputLine = br.readLine()) != null) {
-				response.append(inputLine);
-			}
-			br.close();
-		} catch (Throwable e) {
+			String authToken = "Token " + token;
+			Request request = new Request.Builder().url(url).header("Authorization", authToken).build();
+			response = client.newCall(request).execute();
+			return response.body().string();
+		} catch (IOException e) {
 			System.out.println(e.getMessage());
 			System.exit(1);
-		} finally {
-			if (br != null) {
-				try {
-					br.close();
-				} catch (IOException e) {}
-			}
-
-			if (httpcon != null) {
-				httpcon.disconnect();
-			}
 		}
-
-		return response.toString();
+		return null;
 	}
 
 	/* Method call to send OMI write envelope to the sand box */
@@ -174,39 +137,18 @@ public class FourDegData {
 		}
 	}
 
-	/* Method call to get value of the Info Item MAC */
+	/* Method call to get value of the InfoItem MAC */
 	public static String getMacValue(String url) {
-
-		HttpURLConnection httpcon = null;
-		BufferedReader br = null;
-		StringBuffer response = null;
+		//System.out.println(url);
+		Response response = null;
 		try {
-			httpcon = (HttpURLConnection) ((new URL(url).openConnection()));
-			httpcon.setDoOutput(false);
-			httpcon.setRequestMethod("GET");
-			br = new BufferedReader(new InputStreamReader(httpcon.getInputStream(), "UTF-8"));
-			response = new StringBuffer();
-
-			String inputLine;
-			while ((inputLine = br.readLine()) != null) {
-				response.append(inputLine);
-			}
-			br.close();
-		} catch (Throwable e) {
+			Request request = new Request.Builder().url(url).build();
+			response = client.newCall(request).execute();
+			return response.body().string();
+		} catch (IOException e) {
 			System.out.println(e.getMessage());
 			System.exit(1);
-		} finally {
-			if (br != null) {
-				try {
-					br.close();
-				} catch (IOException e) {}
-			}
-
-			if (httpcon != null) {
-				httpcon.disconnect();
-			}
 		}
-
-		return response.toString();
+		return null;
 	}
 }

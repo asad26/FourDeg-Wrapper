@@ -33,9 +33,9 @@ public class Main {
 
 		FourDegData fdObject = new FourDegData(prop);
 		
-		String jsonData = fdObject.getJsonData(fdUrl, token);
 		//System.out.println(jsonData);
 		try {
+			String jsonData = fdObject.getJsonData(fdUrl, token);
 			fdObject.parseArray(jsonData);
 		} catch (JSONException e) {
 			System.out.println(e.getMessage());
