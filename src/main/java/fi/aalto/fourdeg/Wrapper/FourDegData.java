@@ -57,7 +57,7 @@ public class FourDegData {
 			String pubDate = jObject.getString("last_communication");
 			String objectId = jObject.getString("name").replace(" ", "");
 
-			String URL = "http://localhost:8080/Objects/Otakaari-3/Thermostats/" + objectId + "/MAC/value";
+			String URL = "http://localhost:8080/Objects/Otakaari4/Thermostats/" + objectId + "/MAC/value";
 			String macValue = getMacValue(URL);
 			String MAC = jObject.getString("mac");
 
@@ -79,8 +79,8 @@ public class FourDegData {
 			infoItems = infoItems + omiObject.createInfoItem(newKey, jObject.getString("current_battery_remaining"), pubDate);
 			
 			String roomObject = omiObject.createOdfObject(objectId, infoItems);
-			String thermoObject = omiObject.createOdfObject("Thermostats", roomObject);
-			String topObject = omiObject.createOdfObject("Otakaari-3", thermoObject);
+			String thermoObject = omiObject.createOdfObject("Fourdeg", roomObject);
+			String topObject = omiObject.createOdfObject("Otakaari4", thermoObject);
 			String finalMessage = omiObject.createWriteMessage(omiObject.createOdfObjects(topObject));
 			sendData(omiURL, finalMessage);
 			
