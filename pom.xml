@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>fi.aalto.fourdeg</groupId>
 	<artifactId>FourDegWrapper</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.2-SNAPSHOT</version>
 	<packaging>jar</packaging>
 	<name>FourDegWrapper</name>
 	<description>This project is for wrapping fourdeg data using OMI</description>

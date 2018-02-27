@@ -57,7 +57,7 @@ public class FourDegData {
 			String pubDate = jObject.getString("last_communication");
 			String objectId = jObject.getString("name").replace(" ", "");
 
-			String URL = "http://localhost:8080/Objects/Otakaari4/Thermostats/" + objectId + "/MAC/value";
+			String URL = "http://localhost:8080/Objects/Otakaari4/Fourdeg/" + objectId + "/MAC/value";
 			String macValue = getMacValue(URL);
 			String MAC = jObject.getString("mac");
 
